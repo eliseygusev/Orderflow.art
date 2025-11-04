@@ -310,10 +310,93 @@ export default async function handler(
       newLabelsArray.push(...newLabels[column]);
     }
 
-    // Create new indices
+    // Create column name to 3-letter suffix mapping
+    const columnSuffixes: Record<string, string> = {
+      frontend: "fro",
+      metaaggregator: "met",
+      solver: "sol",
+      mempool: "mem",
+      ofa: "ofa",
+      builder: "bui",
+      aggregator: "agg",
+      liquidity_src: "liq",
+      pmm: "pmm",
+    };
+
+    // Check for name collisions across columns and add suffixes
+    const labelCounts = new Map<string, string[]>(); // label -> [columns it appears in]
+
+    for (const [column, columnLabels] of Object.entries(newLabels)) {
+      for (const label of columnLabels) {
+        if (!labelCounts.has(label)) {
+          labelCounts.set(label, []);
+        }
+        labelCounts.get(label)!.push(column);
+      }
+    }
+
+    // Helper function to format addresses (0x...)
+    const formatLabel = (label: string): string => {
+      // Check if it starts with 0x and is long enough to truncate
+      if (label.startsWith("0x") && label.length > 10) {
+        // Show first 5 chars (0x + 3) and last 3 chars
+        return `${label.substring(0, 5)}...${label.substring(label.length - 3)}`;
+      }
+      return label;
+    };
+
+    // Add suffixes to disambiguate colliding names
+    const disambiguatedLabels: Record<string, string[]> = {};
+    const disambiguatedLabelsArray: string[] = [];
+    const displayToOriginalMap = new Map<string, string>(); // Maps display label to original label
+
+    for (const [column, columnLabels] of Object.entries(newLabels)) {
+      disambiguatedLabels[column] = [];
+      for (const label of columnLabels) {
+        const columns = labelCounts.get(label)!;
+
+        // Format the label (truncate addresses)
+        let formattedLabel = formatLabel(label);
+
+        // Add suffix if label appears in multiple columns
+        if (columns.length > 1) {
+          const suffix = columnSuffixes[column] || column.substring(0, 3);
+          const newLabel = `${formattedLabel} (${suffix})`;
+          disambiguatedLabels[column].push(newLabel);
+          disambiguatedLabelsArray.push(newLabel);
+          displayToOriginalMap.set(newLabel, label);
+        } else {
+          disambiguatedLabels[column].push(formattedLabel);
+          disambiguatedLabelsArray.push(formattedLabel);
+          displayToOriginalMap.set(formattedLabel, label);
+        }
+      }
+    }
+
+    // Update label mapping to include suffixes and formatting
+    const finalLabelMapping: Record<string, string> = {};
+    for (const [column, columnLabels] of Object.entries(labels)) {
+      for (const label of columnLabels) {
+        const mappedLabel = labelMapping[label]; // Either original label or "Other (column)"
+
+        // Format the mapped label (truncate addresses)
+        const formattedMappedLabel = formatLabel(mappedLabel);
+
+        // Check if this mapped label needs disambiguation
+        const columns = labelCounts.get(mappedLabel) || [];
+        if (columns.length > 1) {
+          const suffix = columnSuffixes[column] || column.substring(0, 3);
+          finalLabelMapping[label] = `${formattedMappedLabel} (${suffix})`;
+        } else {
+          finalLabelMapping[label] = formattedMappedLabel;
+        }
+      }
+    }
+
+    // Create new indices with disambiguated labels
     const newIndicies: Record<string, Record<string, number>> = {};
     let newIndex = 0;
-    for (const [column, columnLabels] of Object.entries(newLabels)) {
+    for (const [column, columnLabels] of Object.entries(disambiguatedLabels)) {
       newIndicies[column] = {};
       for (const label of columnLabels) {
         newIndicies[column][label] = newIndex;
@@ -321,7 +404,7 @@ export default async function handler(
       }
     }
 
-    // Aggregate links using the new grouping
+    // Aggregate links using the new grouping with disambiguated labels
     const linkMap = new Map<string, number>();
 
     for (let i = 0; i < source.length; i++) {
@@ -329,8 +412,8 @@ export default async function handler(
       const targetLabel = labelsArray[target[i]];
       const vol = value[i];
 
-      const newSourceLabel = labelMapping[sourceLabel];
-      const newTargetLabel = labelMapping[targetLabel];
+      const newSourceLabel = finalLabelMapping[sourceLabel];
+      const newTargetLabel = finalLabelMapping[targetLabel];
 
       // Find which columns these belong to
       let sourceColumn = "";
@@ -365,12 +448,14 @@ export default async function handler(
       return "#" + Math.floor(Math.random() * 16777215).toString(16);
     };
 
-    for (const label of newLabelsArray) {
+    for (const label of disambiguatedLabelsArray) {
       // Use gray color for "Other" groups
       if (label.startsWith("Other (")) {
         colors.push("#999999");
       } else {
-        colors.push(sankeyFrontendColors[label] ? sankeyFrontendColors[label] : randomHexColor());
+        // Get the original label before truncation and suffixes
+        const originalLabel = displayToOriginalMap.get(label) || label;
+        colors.push(sankeyFrontendColors[originalLabel] ? sankeyFrontendColors[originalLabel] : randomHexColor());
       }
     }
 
@@ -378,7 +463,7 @@ export default async function handler(
       data: {
         entityFilter,
         links: { source: newSource, target: newTarget, value: newValue },
-        labels: newLabelsArray,
+        labels: disambiguatedLabelsArray,
         colors,
         range: null, // No time range data in aggregated tables
       },
