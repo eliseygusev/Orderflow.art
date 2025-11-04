@@ -286,6 +286,12 @@ export default async function handler(
       topLabels[column] = new Set(sorted);
     }
 
+    // Helper function to format column name for "Other" labels
+    const formatColumnName = (column: string): string => {
+      if (column === "solver") return "solvers";
+      return column;
+    };
+
     // Create mapping from old label to new label (top N or "Other")
     const labelMapping: Record<string, string> = {};
     for (const [column, columnLabels] of Object.entries(labels)) {
@@ -293,7 +299,7 @@ export default async function handler(
         if (topLabels[column].has(label)) {
           labelMapping[label] = label;
         } else {
-          labelMapping[label] = `Other (${column})`;
+          labelMapping[label] = `Other (${formatColumnName(column)})`;
         }
       }
     }
@@ -306,7 +312,7 @@ export default async function handler(
       const topN = Array.from(topLabels[column]);
       const hasOther = columnLabels.length > TOP_N;
 
-      newLabels[column] = hasOther ? [...topN, `Other (${column})`] : topN;
+      newLabels[column] = hasOther ? [...topN, `Other (${formatColumnName(column)})`] : topN;
       newLabelsArray.push(...newLabels[column]);
     }
 
