@@ -278,7 +278,7 @@ const SankeyFilter: FC<Props> = ({
         <div className="relative flex w-full flex-row">
           {[
             { name: "Retail Trade Volume", value: Sankey.Orderflow },
-            { name: "Retail Liquidity Impact", value: Sankey.Liquidity },
+            // { name: "Retail Liquidity Impact", value: Sankey.Liquidity },
           ].map((b, i) => (
             <button
               key={i}
