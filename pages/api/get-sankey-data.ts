@@ -263,7 +263,7 @@ export default async function handler(
     await getRequests();
 
     // Group into Top 10 + Other for each entity column
-    const TOP_N = 20;
+    const TOP_N = 30;
 
     // Calculate total volume for each label in each column
     const volumeByColumn: Record<string, Record<string, number>> = {};
