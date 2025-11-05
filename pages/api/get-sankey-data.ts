@@ -190,13 +190,25 @@ export default async function handler(
 
     await getLabels();
 
-    // Label indicies
+    // Rebuild labelsArray in the correct column order
+    // (it was populated in async completion order by sendLabels)
+    labelsArray.length = 0; // Clear the array
+    for (let i = 0; i < entColumns.length; i++) {
+      const column = entColumns[i];
+      labelsArray.push(...labels[column]);
+    }
+
+    // Label indicies and column tracking
     const indicies: Record<string, Record<string, number>> = {};
+    const indexToColumn: string[] = []; // Maps each index to its column name
     let index = 0;
-    for (const [column, values] of Object.entries(labels)) {
+    for (let i = 0; i < entColumns.length; i++) {
+      const column = entColumns[i];
+      const values = labels[column];
       indicies[column] = {};
       for (const value of values) {
         indicies[column][value] = index;
+        indexToColumn[index] = column;
         index++;
       }
     }
@@ -266,7 +278,10 @@ export default async function handler(
       const vol = value[i];
 
       // Find which column each label belongs to
-      for (const [column, columnLabels] of Object.entries(labels)) {
+      for (let j = 0; j < entColumns.length; j++) {
+        const column = entColumns[j];
+        const columnLabels = labels[column];
+
         if (columnLabels.includes(sourceLabel)) {
           volumeByColumn[column][sourceLabel] = (volumeByColumn[column][sourceLabel] || 0) + vol;
         }
@@ -278,7 +293,9 @@ export default async function handler(
 
     // Determine top N for each column
     const topLabels: Record<string, Set<string>> = {};
-    for (const [column, volumes] of Object.entries(volumeByColumn)) {
+    for (let i = 0; i < entColumns.length; i++) {
+      const column = entColumns[i];
+      const volumes = volumeByColumn[column];
       const sorted = Object.entries(volumes)
         .sort((a, b) => b[1] - a[1])
         .slice(0, TOP_N)
@@ -294,7 +311,10 @@ export default async function handler(
 
     // Create mapping from old label to new label (top N or "Other")
     const labelMapping: Record<string, string> = {};
-    for (const [column, columnLabels] of Object.entries(labels)) {
+    for (let i = 0; i < entColumns.length; i++) {
+      const column = entColumns[i];
+      const columnLabels = labels[column];
+
       for (const label of columnLabels) {
         if (topLabels[column].has(label)) {
           labelMapping[label] = label;
@@ -308,7 +328,9 @@ export default async function handler(
     const newLabels: Record<string, string[]> = {};
     const newLabelsArray: string[] = [];
 
-    for (const [column, columnLabels] of Object.entries(labels)) {
+    for (let i = 0; i < entColumns.length; i++) {
+      const column = entColumns[i];
+      const columnLabels = labels[column];
       const topN = Array.from(topLabels[column]);
       const hasOther = columnLabels.length > TOP_N;
 
@@ -332,7 +354,10 @@ export default async function handler(
     // Check for name collisions across columns and add suffixes
     const labelCounts = new Map<string, string[]>(); // label -> [columns it appears in]
 
-    for (const [column, columnLabels] of Object.entries(newLabels)) {
+    for (let i = 0; i < entColumns.length; i++) {
+      const column = entColumns[i];
+      const columnLabels = newLabels[column];
+
       for (const label of columnLabels) {
         if (!labelCounts.has(label)) {
           labelCounts.set(label, []);
@@ -355,8 +380,13 @@ export default async function handler(
     const disambiguatedLabels: Record<string, string[]> = {};
     const disambiguatedLabelsArray: string[] = [];
     const displayToOriginalMap = new Map<string, string>(); // Maps display label to original label
+    const labelToColumnIndex = new Map<string, number>(); // Maps label to its column index
 
-    for (const [column, columnLabels] of Object.entries(newLabels)) {
+    // Iterate through entColumns to preserve proper column order
+    for (let colIdx = 0; colIdx < entColumns.length; colIdx++) {
+      const column = entColumns[colIdx];
+      const columnLabels = newLabels[column];
+
       disambiguatedLabels[column] = [];
       for (const label of columnLabels) {
         const columns = labelCounts.get(label)!;
@@ -371,17 +401,23 @@ export default async function handler(
           disambiguatedLabels[column].push(newLabel);
           disambiguatedLabelsArray.push(newLabel);
           displayToOriginalMap.set(newLabel, label);
+          labelToColumnIndex.set(newLabel, colIdx);
         } else {
           disambiguatedLabels[column].push(formattedLabel);
           disambiguatedLabelsArray.push(formattedLabel);
           displayToOriginalMap.set(formattedLabel, label);
+          labelToColumnIndex.set(formattedLabel, colIdx);
         }
       }
     }
 
     // Update label mapping to include suffixes and formatting
+    // Use compound key "column:label" to avoid collisions when same entity appears in multiple columns
     const finalLabelMapping: Record<string, string> = {};
-    for (const [column, columnLabels] of Object.entries(labels)) {
+    for (let i = 0; i < entColumns.length; i++) {
+      const column = entColumns[i];
+      const columnLabels = labels[column];
+
       for (const label of columnLabels) {
         const mappedLabel = labelMapping[label]; // Either original label or "Other (column)"
 
@@ -392,9 +428,9 @@ export default async function handler(
         const columns = labelCounts.get(mappedLabel) || [];
         if (columns.length > 1) {
           const suffix = columnSuffixes[column] || column.substring(0, 3);
-          finalLabelMapping[label] = `${formattedMappedLabel} (${suffix})`;
+          finalLabelMapping[column + ":" + label] = `${formattedMappedLabel} (${suffix})`;
         } else {
-          finalLabelMapping[label] = formattedMappedLabel;
+          finalLabelMapping[column + ":" + label] = formattedMappedLabel;
         }
       }
     }
@@ -402,7 +438,10 @@ export default async function handler(
     // Create new indices with disambiguated labels
     const newIndicies: Record<string, Record<string, number>> = {};
     let newIndex = 0;
-    for (const [column, columnLabels] of Object.entries(disambiguatedLabels)) {
+    for (let i = 0; i < entColumns.length; i++) {
+      const column = entColumns[i];
+      const columnLabels = disambiguatedLabels[column];
+
       newIndicies[column] = {};
       for (const label of columnLabels) {
         newIndicies[column][label] = newIndex;
@@ -414,20 +453,20 @@ export default async function handler(
     const linkMap = new Map<string, number>();
 
     for (let i = 0; i < source.length; i++) {
-      const sourceLabel = labelsArray[source[i]];
-      const targetLabel = labelsArray[target[i]];
+      const sourceIdx = source[i];
+      const targetIdx = target[i];
       const vol = value[i];
 
-      const newSourceLabel = finalLabelMapping[sourceLabel];
-      const newTargetLabel = finalLabelMapping[targetLabel];
+      const sourceLabel = labelsArray[sourceIdx];
+      const targetLabel = labelsArray[targetIdx];
 
-      // Find which columns these belong to
-      let sourceColumn = "";
-      let targetColumn = "";
-      for (const [column, columnLabels] of Object.entries(labels)) {
-        if (columnLabels.includes(sourceLabel)) sourceColumn = column;
-        if (columnLabels.includes(targetLabel)) targetColumn = column;
-      }
+      // Use the index to find which column this label belongs to
+      const sourceColumn = indexToColumn[sourceIdx];
+      const targetColumn = indexToColumn[targetIdx];
+
+      // Map to the final label including grouping and disambiguation
+      const newSourceLabel = finalLabelMapping[sourceColumn + ":" + sourceLabel];
+      const newTargetLabel = finalLabelMapping[targetColumn + ":" + targetLabel];
 
       const newSourceIdx = newIndicies[sourceColumn][newSourceLabel];
       const newTargetIdx = newIndicies[targetColumn][newTargetLabel];
@@ -449,10 +488,15 @@ export default async function handler(
     }
 
     const colors = [];
+    const xPositions = [];
 
     const randomHexColor = () => {
       return "#" + Math.floor(Math.random() * 16777215).toString(16);
     };
+
+    // Calculate x position for each node based on its column
+    // Match the CSS grid layout (grid-cols-6) where each column is centered at (i + 0.5) / 6
+    const columnCount = entColumns.length;
 
     for (const label of disambiguatedLabelsArray) {
       // Use gray color for "Other" groups
@@ -463,6 +507,11 @@ export default async function handler(
         const originalLabel = displayToOriginalMap.get(label) || label;
         colors.push(sankeyFrontendColors[originalLabel] ? sankeyFrontendColors[originalLabel] : randomHexColor());
       }
+
+      // Use the pre-tracked column index for this label
+      const columnIndex = labelToColumnIndex.get(label) || 0;
+      // Position at the center of each grid column: (columnIndex + 0.5) / columnCount
+      xPositions.push((columnIndex + 0.5) / columnCount);
     }
 
     return res.status(200).send({
@@ -471,6 +520,7 @@ export default async function handler(
         links: { source: newSource, target: newTarget, value: newValue },
         labels: disambiguatedLabelsArray,
         colors,
+        xPositions,
         range: null, // No time range data in aggregated tables
       },
     });

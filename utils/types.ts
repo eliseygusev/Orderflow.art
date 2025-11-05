@@ -14,6 +14,7 @@ export type getSankeyDataResponse = {
     };
     labels: string[];
     colors: string[];
+    xPositions?: number[];
     range: {
       startTime: string;
       endTime: string;

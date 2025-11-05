@@ -36,7 +36,6 @@ export const getTimeframeFilter = async (timeframe: string, table: string) => {
 export function changeQueryParam(
   isOrderflow: boolean,
   timeframe: SingleValue<SelectItem>,
-  txHash: SelectItem[],
   pairs: SelectItem[],
   mempoolEnabled: boolean,
   setMempoolEnabled: Dispatch<SetStateAction<boolean>>,
@@ -66,12 +65,6 @@ export function changeQueryParam(
 
   if (timeframe && timeframe?.value !== "7d") {
     urlParams.append("timeframe", timeframe.value);
-  }
-
-  if (txHash) {
-    for (const hash of txHash) {
-      urlParams.append("txHash", hash.value);
-    }
   }
 
   for (const pair of pairs) {

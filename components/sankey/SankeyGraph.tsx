@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { SelectItem, getDataRangeResponse, getSankeyDataResponse } from "@/utils/types";
+import { getDataRangeResponse, getSankeyDataResponse } from "@/utils/types";
 import Loader from "@/components/primitives/Loader";
 import dynamic from "next/dynamic";
 import { useMediaQuery } from "usehooks-ts";
@@ -8,14 +8,13 @@ const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
 
 type Props = {
   height: number;
-  txHash: SelectItem[];
   isLoading: boolean;
   data?: getSankeyDataResponse["data"];
   rangeData?: getDataRangeResponse["data"];
   error?: getSankeyDataResponse["error"];
 };
 
-const SankeyGraph: FC<Props> = ({ height, txHash, isLoading, data, rangeData, error }) => {
+const SankeyGraph: FC<Props> = ({ height, isLoading, data, rangeData, error }) => {
   const isSmallDevice = useMediaQuery("(max-width: 1000px)");
   const isPortrait = useMediaQuery("(max-width: 600px)");
 
@@ -42,12 +41,13 @@ const SankeyGraph: FC<Props> = ({ height, txHash, isLoading, data, rangeData, er
                   type: "sankey",
                   orientation: "h",
                   valueformat: "$,.8r",
-                  arrangement: "perpendicular",
+                  arrangement: "snap",
                   node: {
                     pad: 8,
                     thickness: 10,
                     label: data.labels,
                     color: data.colors,
+                    x: data.xPositions,
                   },
                   link: data.links,
                 },
@@ -92,12 +92,13 @@ const SankeyGraph: FC<Props> = ({ height, txHash, isLoading, data, rangeData, er
                   type: "sankey",
                   orientation: "h",
                   valueformat: "$,.8r",
-                  arrangement: "perpendicular",
+                  arrangement: "snap",
                   node: {
                     pad: 8,
                     thickness: 10,
                     label: data.labels,
                     color: data.colors,
+                    x: data.xPositions,
                   },
                   link: data.links,
                 },
@@ -140,7 +141,7 @@ const SankeyGraph: FC<Props> = ({ height, txHash, isLoading, data, rangeData, er
           <div className={`flex w-full items-center`} style={{ height: `${height - 56}px` }}>
             <Plot
               style={{
-                height: `${txHash.length === 1 ? "50%" : "100%"}`,
+                height: "100%",
                 width: "100%",
               }}
               data={[
@@ -148,12 +149,13 @@ const SankeyGraph: FC<Props> = ({ height, txHash, isLoading, data, rangeData, er
                   type: "sankey",
                   orientation: "h",
                   valueformat: "$,.8r",
-                  arrangement: "perpendicular",
+                  arrangement: "snap",
                   node: {
                     pad: 12,
                     thickness: 30,
                     label: data.labels,
                     color: data.colors,
+                    x: data.xPositions,
                   },
                   link: data.links,
                 },

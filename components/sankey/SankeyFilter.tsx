@@ -6,14 +6,10 @@ import {
   SelectItem,
   SelectItemEntities,
   getEntitiesResponse,
-  getHashesResponse,
 } from "@/utils/types";
 import PairsStylizedMultiSelect from "../primitives/PairsSelect";
 import { SingleValue } from "react-select";
 import { changeQueryParam, queryArray } from "@/utils/helpers";
-import StylizedTxHashSelect from "../primitives/TxHashSelect";
-import useSWR from "swr";
-import fetcher from "@/utils/fetcher";
 import StylizedSingleSelect from "../primitives/SingleSelect";
 import { timeframeList } from "@/utils/constants";
 import { useRouter } from "next/router";
@@ -27,8 +23,6 @@ type Props = {
   setGraphType: Dispatch<SetStateAction<Sankey>>;
   isOrderflow: boolean;
   setQueryParam: Dispatch<SetStateAction<string>>;
-  txHash: SelectItem[];
-  setTxHash: Dispatch<SetStateAction<SelectItem[]>>;
   timeframe: SingleValue<SelectItem>;
   setTimeframe: Dispatch<SetStateAction<SingleValue<SelectItem>>>;
 };
@@ -40,8 +34,6 @@ const SankeyFilter: FC<Props> = ({
   setGraphType,
   isOrderflow,
   setQueryParam,
-  txHash,
-  setTxHash,
   timeframe,
   setTimeframe,
 }) => {
@@ -60,19 +52,6 @@ const SankeyFilter: FC<Props> = ({
   const router = useRouter();
 
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const { data: txHashData } = useSWR<getHashesResponse>(
-    [
-      "/api/get-hashes",
-      `?isOrderflow=${isOrderflow}${
-        timeframe && timeframe.value !== "7d" ? "&timeframe=" + timeframe.value : ""
-      }`,
-    ],
-    ([url, queryParam]) => fetcher(url, queryParam),
-    {
-      revalidateOnFocus: false,
-    },
-  );
 
   useEffect(() => {
     const query = parse(router.asPath.slice(2));
@@ -130,19 +109,6 @@ const SankeyFilter: FC<Props> = ({
         setTimeframe({ label: timeframe, value: timeframe });
       }
 
-      if (query.txHash) {
-        const txHash = queryArray(query.txHash);
-
-        for (const hash of txHash) {
-          urlParams.append("txHash", hash);
-        }
-
-        const selectArray = txHash.map((hash) => {
-          return { label: hash, value: hash };
-        });
-        setTxHash(selectArray);
-      }
-
       if (query.pairs) {
         const pairs = queryArray(query.pairs);
 
@@ -181,7 +147,6 @@ const SankeyFilter: FC<Props> = ({
     changeQueryParam(
       isOrderflow,
       timeframe,
-      txHash,
       pairs,
       mempoolEnabled,
       setMempoolEnabled,
@@ -200,7 +165,6 @@ const SankeyFilter: FC<Props> = ({
     ofa,
     builder,
     timeframe,
-    txHash,
     pairs,
     mempoolEnabled,
   ]);
@@ -258,7 +222,6 @@ const SankeyFilter: FC<Props> = ({
       changeQueryParam(
         isOrderflow,
         timeframe,
-        txHash,
         pairs,
         mempoolEnabled,
         setMempoolEnabled,
@@ -278,7 +241,7 @@ const SankeyFilter: FC<Props> = ({
         <div className="relative flex w-full flex-row">
           {[
             { name: "Retail Trade Volume", value: Sankey.Orderflow },
-            // { name: "Retail Liquidity Impact", value: Sankey.Liquidity },
+            { name: "Retail Liquidity Impact", value: Sankey.Liquidity },
           ].map((b, i) => (
             <button
               key={i}
@@ -306,21 +269,6 @@ const SankeyFilter: FC<Props> = ({
                   entityFilter={entityFilter}
                   timeframe={timeframe}
                 />
-              </div>
-            </div>
-
-            <div className="flex flex-col xl:flex-row">
-              <div className="flex h-[39px] flex-1">
-                <div className="flex h-[39px] items-center border-b border-r border-b-barter-blue border-r-barter-blue bg-barter-isabeline px-4">
-                  <span className="text-sm font-bold">{"Tx Hash"}</span>
-                </div>
-                <div className="flex-1">
-                  <StylizedTxHashSelect
-                    value={txHash}
-                    setValue={setTxHash}
-                    options={txHashData?.hashes}
-                  />
-                </div>
               </div>
               <div className="min-w-[250px] flex-shrink xl:border-l xl:border-l-barter-blue">
                 <StylizedSingleSelect

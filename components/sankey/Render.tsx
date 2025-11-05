@@ -19,7 +19,6 @@ export default function SankeyRender() {
     label: "7d",
     value: "7d",
   });
-  const [txHash, setTxHash] = useState<SelectItem[]>([]);
   const [graphType, setGraphType] = useState<Sankey>(Sankey.Orderflow);
   const isOrderflow: boolean = graphType === Sankey.Orderflow;
   const [queryParam, setQueryParam] = useState<string>(`?isOrderflow=${isOrderflow}`);
@@ -68,14 +67,11 @@ export default function SankeyRender() {
           setGraphType={setGraphType}
           isOrderflow={isOrderflow}
           setQueryParam={setQueryParam}
-          txHash={txHash}
-          setTxHash={setTxHash}
           timeframe={timeframe}
           setTimeframe={setTimeframe}
         />
         <SankeyGraph
           height={Math.min(Math.max(windowHeight - 72, 600), 2000)}
-          txHash={txHash}
           isLoading={sankeyLoading}
           data={sankeyData?.data}
           rangeData={rangeData?.data}
