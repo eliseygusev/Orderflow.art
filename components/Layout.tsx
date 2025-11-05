@@ -23,9 +23,9 @@ export default function Layout({ children }: { children: ReactElement | ReactEle
 
 function Meta() {
   const meta = {
-    url: "https://orderflow.art",
-    image: "https://orderflow.art/meta.png",
-    favicon: "https://orderflow.art/favicon.ico",
+    url: "https://orderflow.barterswap.xyz",
+    image: "https://orderflow.barterswap.xyz/meta.png?v=2",
+    favicon: "https://orderflow.barterswap.xyz/favicon.ico",
     title: "Orderflow.art | Illuminating Ethereum's order flow landscape.",
     description:
       "Illuminating Ethereum's order flow landscape. Empowering users with tools to visualize power and profit in the MEV supply network.",
