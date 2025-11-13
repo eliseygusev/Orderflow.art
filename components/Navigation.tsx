@@ -10,8 +10,8 @@ type Page = {
 // Orderflow.art pages
 const PAGES: Page[] = [
   { name: "Sankey", path: "/" },
-  { name: "Frontends", path: "/frontends" },
-  { name: "Order Flow Auctions", path: "/ofa" },
+  // { name: "Frontends", path: "/frontends" },
+  // { name: "Order Flow Auctions", path: "/ofa" },
 ];
 
 export default function Navigation() {

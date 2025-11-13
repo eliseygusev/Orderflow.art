@@ -16,7 +16,7 @@ export default function DataRange({
     return (
       <div className={`flex flex-col p-1 ${isPortrait ? "text-center" : "items-end"}`}>
         <span className={isPortrait ? "break-word text-[10px]" : "text-xs"}>
-          Aggregated data (all time)
+          Aggregated data (last 7 days)
         </span>
       </div>
     );
